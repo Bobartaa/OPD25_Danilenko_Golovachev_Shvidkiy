@@ -1,6 +1,7 @@
 """Здесь прописано меню, которое открывается на клавишу escape"""
 import sys, pygame as pg, pygame.font, score, save_script, tank
 
+pg.mixer.init()
 
 class Button:
     """
@@ -83,6 +84,8 @@ class MainMenu:
     def __init__(self, screen):
         self.screen = screen
         self.background = pg.image.load('images/backgrounds/menuBG.png')
+        self.menu_music = pg.mixer.Sound('sounds\menu_music.mp3.mp3')
+        self.music_playing = False
         self.button_start = Button(screen, 150, 300, 70, "Начать игру")
         self.button_exit = Button(screen, 350, 300, 70, "Выйти из игры")
         self.button_stats = Button(screen, 250, 300, 70, "Статистика")
@@ -93,6 +96,7 @@ class MainMenu:
     def draw(self):
         """Отрисовывает меню, состоящее из кнопок и заднего фона """
         if self.is_opened:
+            self.play_music()
             self.screen.blit(self.background, (0, 0))
             self.stats_menu.draw()
             self.difficulty.draw()
@@ -100,6 +104,21 @@ class MainMenu:
                 self.button_start.draw()
                 self.button_exit.draw()
                 self.button_stats.draw()
+        else: 
+            self.stop_music()
+    
+    def play_music(self):
+        """Воспроизведение музыки меню"""
+        if not self.music_playing:
+            self.menu_music.play(-1)  # -1 означает бесконечный цикл
+            self.menu_music.set_volume(0.5)  # Установка громкости (от 0.0 до 1.0)
+            self.music_playing = True
+            
+    def stop_music(self):
+        """Остановка музыки меню"""
+        if self.music_playing:
+            self.menu_music.stop()
+            self.music_playing = False
 
     def update(self, event):
         """Проверка нажаты ли кнопки """
