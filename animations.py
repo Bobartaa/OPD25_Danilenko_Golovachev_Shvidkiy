@@ -2,7 +2,7 @@ import pygame as pg
 import os
 
 class Explosion:
-    """Класс для анимации взрыва при смерти танка"""
+    #Класс для анимации взрыва при смерти танка
     
     def __init__(self):
         self.frame_index = 0
@@ -10,7 +10,7 @@ class Explosion:
         self.frames = self._load_frames()
         
     def _load_frames(self):
-        """Загружает кадры анимации из папки"""
+        #Загружает кадры анимации из папки
         frames = []
         folder = 'images/animations/explosion/'
         # Автоматическая загрузка кадров
@@ -30,7 +30,7 @@ class Explosion:
         return frames
 
     def boom(self, screen, x, y):
-        """Отрисовывает текущий кадр взрыва"""
+        #Отрисовывает текущий кадр взрыва
         if self.frame_index < len(self.frames):
             screen.blit(self.frames[self.frame_index], (x - 30, y - 30))
             self.frame_index += 1
