@@ -1,7 +1,6 @@
 """Здесь прописано меню, которое открывается на клавишу escape"""
 import sys, pygame as pg, pygame.font, score, save_script, tank
-
-pg.mixer.init()
+from sound_manager import sound_manager
 
 class Button:
     """
@@ -84,8 +83,6 @@ class MainMenu:
     def __init__(self, screen):
         self.screen = screen
         self.background = pg.image.load('images/backgrounds/menuBG.png')
-        self.menu_music = pg.mixer.Sound('sounds\menu_music.mp3.mp3')
-        self.music_playing = False
         self.button_start = Button(screen, 150, 300, 70, "Начать игру")
         self.button_exit = Button(screen, 350, 300, 70, "Выйти из игры")
         self.button_stats = Button(screen, 250, 300, 70, "Статистика")
@@ -96,8 +93,9 @@ class MainMenu:
     def draw(self):
         """Отрисовывает меню, состоящее из кнопок и заднего фона """
         if self.is_opened:
-            self.play_music()
             self.screen.blit(self.background, (0, 0))
+            # Используем централизованный менеджер звуков для воспроизведения музыки меню
+            sound_manager.play_menu_music()
             self.stats_menu.draw()
             self.difficulty.draw()
             if not self.stats_menu.is_opened and not self.difficulty.is_opened:
@@ -105,20 +103,8 @@ class MainMenu:
                 self.button_exit.draw()
                 self.button_stats.draw()
         else: 
-            self.stop_music()
-    
-    def play_music(self):
-        """Воспроизведение музыки меню"""
-        if not self.music_playing:
-            self.menu_music.play(-1)  # -1 означает бесконечный цикл
-            self.menu_music.set_volume(0.5)  # Установка громкости (от 0.0 до 1.0)
-            self.music_playing = True
-            
-    def stop_music(self):
-        """Остановка музыки меню"""
-        if self.music_playing:
-            self.menu_music.stop()
-            self.music_playing = False
+            # Останавливаем музыку меню при выходе из меню
+            sound_manager.stop_menu_music()
 
     def update(self, event):
         """Проверка нажаты ли кнопки """
@@ -200,21 +186,6 @@ class DifficultyChangeMenu:
             self.button_difficulty_2.update(event)
             self.button_difficulty_3.update(event)
             self.back_to_menu.update(event)
-        #
-        # if self.button_difficulty_1.state == 'pressed':
-        #     self.is_opened = False
-        #     self.button_difficulty_1.state = 'normal'
-        #     self.difficulty = 1
-        #
-        # elif self.button_difficulty_2.state == 'pressed':
-        #     self.is_opened = False
-        #     self.button_difficulty_2.state = 'normal'
-        #     self.difficulty = 2
-        #
-        # elif self.button_difficulty_3.state == 'pressed':
-        #     self.is_opened = False
-        #     self.button_difficulty_3.state = 'normal'
-        #     self.difficulty = 3
 
     def get_difficulty(self):
         return self.difficulty
@@ -357,4 +328,3 @@ class VictoryMenu:
             self.is_openned = True
             if self.is_openned:
                 self.screen.blit(text_shadow, (100 + 4, 250 + 4))
-

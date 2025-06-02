@@ -1,8 +1,7 @@
 """Создание пуль, танков"""
 import pygame as pg, pygame.sprite, field, copter, animations, tank
-
 import save_script
-
+from sound_manager import sound_manager
 
 class Bullet(pg.sprite.Sprite):
     """Создаём пулю, которая является спрайтом"""
@@ -78,22 +77,38 @@ class Tank(pg.sprite.Sprite):
         self.boxes_coordinates = []
         # Проверка: жив или нет. По умолчанию стоит True
         self.alive = True
+        # Флаг для отслеживания состояния движения
+        self.is_moving = False
+        # Флаги для отслеживания воспроизведения звуков
+        self.moving_sound_playing = False
+        self.idle_sound_playing = False
+        
+        # Загружаем звуки для танка
+        self.moving_sound = pg.mixer.Sound('sounds/tank_moving.mp3')
+        self.idle_sound = pg.mixer.Sound('sounds/tank_idle.mp3')
 
     def get_boxes_coordinates(self, transferred_boxes_coordinates):
         """Получение координат коробок"""
         self.boxes_coordinates = transferred_boxes_coordinates
 
     def is_alive(self, explosion):
-
         if self.hp > 0:
             self.alive = True
-
         else:
             explosion.boom(self.screen, self.rect.centerx, self.rect.centery)
             self.alive = False
 
     def __call__(self, hp_line):
         self.hp_line = hp_line
+        
+    def stop_sounds(self):
+        """Останавливает все звуки танка"""
+        if self.moving_sound is not None and self.moving_sound_playing:
+            self.moving_sound.stop()
+            self.moving_sound_playing = False
+        if self.idle_sound is not None and self.idle_sound_playing:
+            self.idle_sound.stop()
+            self.idle_sound_playing = False
 
     def shot(self, bullets, boxes, other_tank, copters, hp_other_tank):
         """
@@ -159,6 +174,8 @@ class Tank(pg.sprite.Sprite):
             if shot:
                 # От коробки отнимаем урон от пули
                 box.hp -= bullet.damage
+                # Звук при попадании по кробоке
+                sound_manager.play_box_break_sound()
 
                 # Удаляем коробку, если она потеряла всем хп
                 if box.hp <= 0:
@@ -192,7 +209,7 @@ class TankTopLeft(Tank):
         self.HEIGHT = 39
 
         # last_shot - время последнего выстрела
-        self.last_shot = pygame.time.get_ticks() - self.shot_delay
+        self.last_shot = pg.time.get_ticks() - self.shot_delay
 
     def move(self, keys, boxes, tank_bottomright):
         """Танк перемещается в одном из 4х направлений."""
@@ -201,6 +218,9 @@ class TankTopLeft(Tank):
         if not (self.alive): return 0
 
         communication_tank = pg.sprite.collide_rect(self, tank_bottomright)
+        
+        # Флаг для отслеживания движения в текущем кадре
+        was_moving = False
 
         if keys[pg.K_d]:
             self.direction = 'right'
@@ -214,6 +234,7 @@ class TankTopLeft(Tank):
                       (not(tank_bottomright.y <= self.y + self.HEIGHT <= tank_bottomright.y + tank_bottomright.HEIGHT))
                       and (not(tank_bottomright.y < self.y < tank_bottomright.y + tank_bottomright.HEIGHT))))):
                 self.x += self.speed
+                was_moving = True
 
         elif keys[pg.K_a]:
             self.direction = 'left'
@@ -227,6 +248,7 @@ class TankTopLeft(Tank):
                       (not(tank_bottomright.y <= self.y + self.HEIGHT <= tank_bottomright.y + tank_bottomright.HEIGHT))
                       and (not(tank_bottomright.y < self.y < tank_bottomright.y + tank_bottomright.HEIGHT))))):
                 self.x -= self.speed
+                was_moving = True
 
         elif keys[pg.K_s]:
             self.direction = 'down'
@@ -240,6 +262,7 @@ class TankTopLeft(Tank):
                       (not(tank_bottomright.x <= self.x + self.WIDTH <= tank_bottomright.x + tank_bottomright.WIDTH))
                       and (not(tank_bottomright.x < self.x < tank_bottomright.x + tank_bottomright.WIDTH))))):
                 self.y += self.speed
+                was_moving = True
 
         elif keys[pg.K_w]:
             self.direction = 'up'
@@ -253,9 +276,33 @@ class TankTopLeft(Tank):
                       (not(tank_bottomright.x <= self.x + self.WIDTH <= tank_bottomright.x + tank_bottomright.WIDTH))
                       and (not(tank_bottomright.x < self.x < tank_bottomright.x + tank_bottomright.WIDTH))))):
                 self.y -= self.speed
+                was_moving = True
 
+        # Обновляем положение танка
         self.rect.x = self.x
         self.rect.y = self.y
+        
+        # Воспроизводим соответствующий звук в зависимости от состояния движения
+        if was_moving:
+            # Если танк движется и звук движения не воспроизводится
+            if not self.moving_sound_playing and self.moving_sound is not None:
+                # Останавливаем звук стояния, если он воспроизводится
+                if self.idle_sound_playing and self.idle_sound is not None:
+                    self.idle_sound.stop()
+                    self.idle_sound_playing = False
+                # Воспроизводим звук движения
+                self.moving_sound.play(-1)  # -1 означает бесконечное повторение
+                self.moving_sound_playing = True
+        else:
+            # Если танк не движется и звук стояния не воспроизводится
+            if not self.idle_sound_playing and self.idle_sound is not None:
+                # Останавливаем звук движения, если он воспроизводится
+                if self.moving_sound_playing and self.moving_sound is not None:
+                    self.moving_sound.stop()
+                    self.moving_sound_playing = False
+                # Воспроизводим звук стояния
+                self.idle_sound.play(-1)  # -1 означает бесконечное повторение
+                self.idle_sound_playing = True
 
     def generate_bullet(self, screen, bullets_topleft, event):
         """
@@ -267,11 +314,13 @@ class TankTopLeft(Tank):
         # Если танк мертв, то создавать спрайты пуль он не может.
         if not(self.alive): return 0
 
-        now = pygame.time.get_ticks()
+        now = pg.time.get_ticks()
         if now - self.last_shot >= self.shot_delay:
             self.last_shot = now
             bullet = Bullet(screen, self)
             bullets_topleft.add(bullet)
+            # Воспроизводим звук выстрела
+            sound_manager.play_shot_sound()
 
     def update(self):
         """Перерисовываем танк на экране."""
@@ -314,13 +363,16 @@ class TankBottomRight(Tank):
         self.HEIGHT = 39
 
         # last_shot - время последнего выстрела
-        self.last_shot = pygame.time.get_ticks() - self.shot_delay
+        self.last_shot = pg.time.get_ticks() - self.shot_delay
 
     def move(self, keys, boxes, tank_topleft):
         """Танк перемещается в одном их 4х направлений."""
 
         # Если танк мертв, то двигаться он не может.
         if not (self.alive): return 0
+        
+        # Флаг для отслеживания движения в текущем кадре
+        was_moving = False
 
         if keys[pg.K_RIGHT]:
             self.direction = 'right'
@@ -334,6 +386,7 @@ class TankBottomRight(Tank):
                       (not(tank_topleft.y <= self.y + self.HEIGHT <= tank_topleft.y + tank_topleft.HEIGHT))
                       and (not(tank_topleft.y < self.y < tank_topleft.y + tank_topleft.HEIGHT))))):
                 self.x += self.speed
+                was_moving = True
 
         elif keys[pg.K_LEFT]:
             self.direction = 'left'
@@ -347,6 +400,7 @@ class TankBottomRight(Tank):
                       (not(tank_topleft.y <= self.y + self.HEIGHT <= tank_topleft.y + tank_topleft.HEIGHT))
                       and (not(tank_topleft.y < self.y < tank_topleft.y + tank_topleft.HEIGHT))))):
                 self.x -= self.speed
+                was_moving = True
 
         elif keys[pg.K_DOWN]:
             self.direction = 'down'
@@ -360,6 +414,7 @@ class TankBottomRight(Tank):
                       (not(tank_topleft.x <= self.x + self.WIDTH <= tank_topleft.x + tank_topleft.WIDTH))
                       and (not(tank_topleft.x < self.x < tank_topleft.x + tank_topleft.WIDTH))))):
                 self.y += self.speed
+                was_moving = True
 
         elif keys[pg.K_UP]:
             self.direction = 'up'
@@ -373,9 +428,33 @@ class TankBottomRight(Tank):
                       (not(tank_topleft.x <= self.x + self.WIDTH <= tank_topleft.x + tank_topleft.WIDTH))
                       and (not(tank_topleft.x < self.x < tank_topleft.x + tank_topleft.WIDTH))))):
                 self.y -= self.speed
+                was_moving = True
 
+        # Обновляем положение танка
         self.rect.x = self.x
         self.rect.y = self.y
+        
+        # Воспроизводим соответствующий звук в зависимости от состояния движения
+        if was_moving:
+            # Если танк движется и звук движения не воспроизводится
+            if not self.moving_sound_playing and self.moving_sound is not None:
+                # Останавливаем звук стояния, если он воспроизводится
+                if self.idle_sound_playing and self.idle_sound is not None:
+                    self.idle_sound.stop()
+                    self.idle_sound_playing = False
+                # Воспроизводим звук движения
+                self.moving_sound.play(-1)  # -1 означает бесконечное повторение
+                self.moving_sound_playing = True
+        else:
+            # Если танк не движется и звук стояния не воспроизводится
+            if not self.idle_sound_playing and self.idle_sound is not None:
+                # Останавливаем звук движения, если он воспроизводится
+                if self.moving_sound_playing and self.moving_sound is not None:
+                    self.moving_sound.stop()
+                    self.moving_sound_playing = False
+                # Воспроизводим звук стояния
+                self.idle_sound.play(-1)  # -1 означает бесконечное повторение
+                self.idle_sound_playing = True
 
     def generate_bullet(self, screen, bullets_bottomright, event):
         """
@@ -387,11 +466,13 @@ class TankBottomRight(Tank):
         # Если танк мертв, то создавать спрайты пуль он не может.
         if not (self.alive): return 0
 
-        now = pygame.time.get_ticks()
+        now = pg.time.get_ticks()
         if now - self.last_shot >= self.shot_delay:
             self.last_shot = now
             bullet = Bullet(screen, self)
             bullets_bottomright.add(bullet)
+            # Воспроизводим звук выстрела
+            sound_manager.play_shot_sound()
 
     def update(self):
         """Перерисовываем танк на экране."""
@@ -408,4 +489,3 @@ class TankBottomRight(Tank):
 
             elif self.direction == 'up':
                 self.screen.blit(self.image_up, self.rect)
-                

@@ -1,6 +1,7 @@
 from pygame.sprite import Group
 from escape import EscapeMenu
 import pygame as pg, background, menu, controls, tank, field, animations, hp, score, save_script
+from sound_manager import sound_manager
 
 
 # Запуск программы
@@ -63,6 +64,10 @@ def run_game():
     # Эта переменная отвечает за то, какой кадр будет использоваться в анимации коптера
     copter_image_index = 0
     running = True
+    
+    # Останавливаем все звуки при запуске игры
+    sound_manager.stop_all_sounds()
+    
     while running:
         # Количество фпс
         clock.tick(FPS)
@@ -71,6 +76,8 @@ def run_game():
         controls.set_difficulty(main_menu.difficulty.get_difficulty())
 
         if not main_menu.is_opened and not main_menu.difficulty.is_opened:
+            # Если мы в игре, останавливаем музыку меню
+            sound_manager.stop_menu_music()
 
             # Постоянное отображение заднего фона игры
             screen.blit(background_image, (0, 0))
@@ -124,6 +131,11 @@ def run_game():
                     tank_topleft.move(keys_get_pressed, boxes, tank_bottomright)
                     tank_bottomright.move(keys_get_pressed, boxes, tank_topleft)
 
+        # Проверяем, нужно ли остановить звуки танков при открытии главного меню
+        if main_menu.is_opened:
+            # Используем централизованный менеджер звуков для остановки всех звуков и запуска музыки меню
+            sound_manager.stop_game_sounds()  # Останавливаем только игровые звуки, не трогая музыку меню
+            
         main_menu.draw()
 
         copter_image_index += 1

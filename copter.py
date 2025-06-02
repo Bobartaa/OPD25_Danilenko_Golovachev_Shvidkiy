@@ -1,4 +1,5 @@
 import pygame as pg, tank, pygame.sprite, math
+from sound_manager import sound_manager
 
 class Copter(pygame.sprite.Sprite):
     """
@@ -20,6 +21,12 @@ class Copter(pygame.sprite.Sprite):
                        pg.image.load('images/copter/dronchik.png'), pg.image.load('images/copter/dronchik.png'),
                        pg.image.load('images/copter/dronchik2.png'), pg.image.load('images/copter/dronchik2.png'),
                        pg.image.load('images/copter/dronchik2.png'), pg.image.load('images/copter/dronchik2.png')]
+        
+        # Уникальный идентификатор для отслеживания звука дрона
+        self.id = id(self)
+        
+        # Запускаем звук дрона при создании
+        sound_manager.play_drone_sound(self.id)
 
     def get_nearest_target(self, enemy1, enemy2):
         """
@@ -99,4 +106,6 @@ class Copter(pygame.sprite.Sprite):
 
     def die(self, copters):
         if self.hp <= 0:
+            # Останавливаем звук дрона при его смерти
+            sound_manager.stop_drone_sound(self.id)
             copters.remove(self)
